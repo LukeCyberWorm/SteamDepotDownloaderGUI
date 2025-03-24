@@ -23,14 +23,14 @@ pub fn get_depotdownloader_url() -> String {
     format!("https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_{}/DepotDownloader-{}-{}.zip", DEPOTDOWNLOADER_VERSION, get_os(), arch)
 }
 
-/// Downloads a file. The file will be saved to the [`filename`] provided.
+/// Baixa um arquivo. O arquivo será salvo no [`filename`] fornecido.
 pub async fn download_file(url: &str, filename: &Path) -> io::Result<()> {
     if filename.exists() {
         println!("DEBUG: Not downloading. File already exists.");
         return Err(io::Error::from(AlreadyExists));
     }
 
-    // Create any missing directories.
+    // Criar todos os diretórios ausentes.
     if let Some(p) = filename.parent() {
         if !p.exists() {
             fs::create_dir_all(p)?;
@@ -48,7 +48,7 @@ pub async fn download_file(url: &str, filename: &Path) -> io::Result<()> {
     Ok(())
 }
 
-/// Unzips DepotDownloader zips
+/// Descompacta os zips do DepotDownloader
 pub fn unzip(zip_file: &Path, working_dir: &PathBuf) -> io::Result<()> {
     let file = File::open(zip_file)?;
     let mut archive = zip::ZipArchive::new(file)?;
@@ -70,17 +70,17 @@ pub fn unzip(zip_file: &Path, working_dir: &PathBuf) -> io::Result<()> {
         let mut outfile = File::create(&outpath)?;
         io::copy(&mut file, &mut outfile)?;
 
-        // Copy over permissions from enclosed file to extracted file on UNIX systems.
+        // Copiar as permissões do arquivo incluso para o arquivo extraído em sistemas UNIX.
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
 
-            // If the mode `file.unix_mode()` is something (not None), copy it over to the extracted file.
+            // Se o modo `file.unix_mode()` for algo (not None), copie-o para o arquivo extraído.
             if let Some(mode) = file.unix_mode() {
                 fs::set_permissions(&outpath, fs::Permissions::from_mode(mode))?;
             }
 
-            // Set executable permission.
+            // Definir a permissão do executável.
             if outpath.file_name().unwrap() == "DepotDownloader" {
                 fs::set_permissions(&outpath, fs::Permissions::from_mode(0o755))?;
             }
@@ -95,7 +95,7 @@ mod tests {
     use reqwest::blocking;
 
     #[test]
-    /// checks if all possible DepotDownloader URLs exist.
+    /// verifica se todos os URLs possíveis do DepotDownloader existem.
     fn test_get_depotdownloader_url() {
         for os in ["windows", "linux", "macos"].iter() {
             for arch in ["x64", "arm64", "arm"].iter() {

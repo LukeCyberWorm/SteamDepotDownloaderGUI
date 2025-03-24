@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 
-/// Represents the data required to download a Steam depot.
+/// Representa os dados necessários para baixar um Depot da Steam.
 #[derive(Deserialize, Debug, Getters)]
 pub struct SteamDownload {
     username: Option<String>,
@@ -23,12 +23,12 @@ pub struct VectumOptions {
 
 
 impl SteamDownload {
-    /// If a username or password are not provided, the download is considered anonymous
+    /// Se um nome de usuário ou senha não forem fornecidos, o download será considerado anônimo
     pub fn is_anonymous(&self) -> bool {
         self.username.is_none() || self.password.is_none()
     }
 
-    /// The directory where the download should happen
+    /// O diretório onde o download deve acontecer
     pub fn output_path(&self) -> String {
         let sep = std::path::MAIN_SEPARATOR.to_string();
         match (&self.options.output_directory, &self.options.directory_name) {

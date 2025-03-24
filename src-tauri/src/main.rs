@@ -1,4 +1,4 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+﻿// Impede janela de console adicional no Windows na versão lançada, NÃO REMOVA!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod depotdownloader;
@@ -16,14 +16,14 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::ShellExt;
 
 
-/// The first terminal found. Used as default terminal.
-static TERMINAL: OnceLock<Vec<Terminal>> = OnceLock::new(); // We create this variable now, and quickly populate it in preload_vectum(). we then later access the data in start_download()
+/// Usar o padrão de terminal do sistema.
+static TERMINAL: OnceLock<Vec<Terminal>> = OnceLock::new(); // Criei essa variável agora e a preenchemos rapidamente em preload_vectum(). Depois, acessamos os dados em start_download()
 static WORKING_DIR: OnceLock<PathBuf> = OnceLock::new();
 
-/// This function is called every time the app is reloaded/started. It quickly populates the [`TERMINAL`] variable with a working terminal.
+/// Esta função é chamada toda vez que o aplicativo é recarregado/iniciado. Ela preenche rapidamente a variável [`TERMINAL`] com um terminal funcional.
 #[tauri::command]
 async fn preload_vectum(app: AppHandle) {
-    // Only fill these variables once.
+    // Preencher essas variáveis ​​apenas uma vez.
     if TERMINAL.get().is_none() {
         TERMINAL.set(terminal::get_installed_terminals(true, app.shell()).await).expect("Failed to set available terminals")
     }
@@ -32,7 +32,7 @@ async fn preload_vectum(app: AppHandle) {
         WORKING_DIR.set(Path::join(&app.path().local_data_dir().unwrap(), "SteamDepotDownloaderGUI")).expect("Failed to configure working directory")
     }
 
-    // Send the default terminal name to the frontend.
+    // Envie o nome do terminal padrão para o frontend.
     app.emit(
         "default-terminal",
         Terminal::pretty_name(&TERMINAL.get().unwrap()[0]),
@@ -44,13 +44,13 @@ async fn start_download(steam_download: steam::SteamDownload, app: AppHandle) {
     let default_terminal = TERMINAL.get().unwrap();
     let shell = app.shell();
     let terminal_to_use = if steam_download.options().terminal().is_none() { default_terminal.first().unwrap() } else { &Terminal::from_index(&steam_download.options().terminal().unwrap()).unwrap() };
-    // Also change working directory
+    // Alterar também o diretório de trabalho
     std::env::set_current_dir(&WORKING_DIR.get().unwrap()).unwrap();
 
     println!("\n-------------------------DEBUG INFO------------------------");
     println!("received these values from frontend:");
     println!("\t- Username: {}", steam_download.username().as_ref().unwrap_or(&String::from("Not provided")));
-    // println!("\t- Password: {}", steam_download.password().as_ref().unwrap_or(&String::from("Not provided"))); Don't log in prod lol
+    // println!("\t- Password: {}", steam_download.password().as_ref().unwrap_or(&String::from("Not provided"))); NÃO LOGAR NO MODO PRODUÇÃO!!
     println!("\t- App ID: {}", steam_download.app_id());
     println!("\t- Depot ID: {}", steam_download.depot_id());
     println!("\t- Manifest ID: {}", steam_download.manifest_id());
@@ -64,12 +64,12 @@ async fn start_download(steam_download: steam::SteamDownload, app: AppHandle) {
     terminal_to_use.create_command(&steam_download, shell, &WORKING_DIR.get().unwrap()).spawn().ok();
 }
 
-/// Downloads the DepotDownloader zip file from the internet based on the OS.
+/// Baixa o arquivo zip do DepotDownloader da internet com base no sistema operacional.
 #[tauri::command]
 async fn download_depotdownloader() {
     let url = get_depotdownloader_url();
 
-    // Where we store the DepotDownloader zip.
+    // Onde será armazenado o zip do DepotDownloader.
     let zip_filename = format!("DepotDownloader-v{}-{}.zip", DEPOTDOWNLOADER_VERSION, env::consts::OS);
     let depotdownloader_zip = Path::join(&WORKING_DIR.get().unwrap(), Path::new(&zip_filename));
 
@@ -89,7 +89,7 @@ async fn download_depotdownloader() {
     println!("Succesfully extracted DepotDownloader zip.");
 }
 
-/// Checks internet connectivity using Google
+/// Verifica a conectividade da Internet usando o Google
 #[tauri::command]
 async fn internet_connection() -> bool {
     let client = reqwest::Client::builder().timeout(Duration::from_secs(5)).build().unwrap();
@@ -104,7 +104,7 @@ async fn get_all_terminals(app: AppHandle) {
     terminals.iter().for_each(|terminal| {
         println!("Terminal #{} ({}) is installed!", terminal.index().unwrap(), terminal.pretty_name());
 
-        // Sends: (terminal index aligned with dropdown; total terminals)
+        // Enviar: (terminal index aligned with dropdown; total terminals)
         app.emit("working-terminal", (terminal.index(), Terminal::total())).unwrap();
     });
 }
@@ -119,9 +119,9 @@ pub fn get_os() -> &'static str {
 }
 
 fn main() {
-    // macOS: change dir to documents because upon opening, our current dir by default is "/".
+    // macOS: altere o diretório para documentos porque ao abrir, nosso diretório atual por padrão é "/".
     if get_os() == "macos" {
-        let _ = fix_path_env::fix(); // todo: does this actually do something useful
+        let _ = fix_path_env::fix(); // todo: isso realmente faz algo útil
         // let documents_dir = format!(
         //     "{}/Documents/SteamDepotDownloaderGUI",
         //     std::env::var_os("HOME").unwrap().to_str().unwrap()

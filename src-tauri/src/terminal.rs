@@ -6,8 +6,8 @@ use tauri::Wry;
 use tauri_plugin_shell::process::Command;
 use tauri_plugin_shell::Shell;
 
-/// Represents a terminal that can be used to run commands.
-/// **Should be in sync with the terminal dropdown in the frontend.**
+/// Representa um terminal que pode ser usado para executar comandos.
+/// **Deve estar sincronizado com o menu suspenso do terminal no frontend.**
 #[derive(Debug, PartialEq)]
 pub enum Terminal {
     GNOMETerminal,
@@ -27,7 +27,7 @@ pub enum Terminal {
 
 
 impl Terminal {
-    /// Iterates through each terminal
+    /// Itera por cada terminal
     pub fn iter() -> impl Iterator<Item=Terminal> {
         use self::Terminal::*;
 
@@ -36,25 +36,25 @@ impl Terminal {
         ].into_iter()
     }
 
-    /// Get terminal from index in order of the [`Terminal`] enum
+    /// Obter terminal do índice na ordem do [`Terminal`] enum
     pub fn from_index(index: &u8) -> Option<Terminal> {
         Terminal::iter().nth(*index as usize)
     }
 
-    /// Get the index of a terminal in the order of the [`Terminal`] enum
-    /// Returns `None` if the terminal is not found.
+    /// Obtenha o índice de um terminal na ordem do [`Terminal`] enum
+    /// Retorna `None` se o terminal não for encontrado.
     pub fn index(&self) -> Option<u8> {
         Terminal::iter().position(|x| x == *self).map(|x| x as u8)
     }
 
 
-    /// Get total number of terminals **possible** depending on the OS
+    /// Obtenha o número total de terminais **possíveis** dependendo do sistema operacional
     pub fn total() -> u8 {
         if get_os() == "windows" || get_os() == "macos" {
             return 1;
         }
 
-        Terminal::iter().count() as u8 - 1 // -1 because cmd is not available on linux
+        Terminal::iter().count() as u8 - 1 // -1 porque cmd não está disponível no linux
     }
 
     /// Get the pretty name of a terminal
@@ -77,9 +77,9 @@ impl Terminal {
     }
 
 
-    //region Probing a terminal
-    /// Checks if a [`Terminal`] is installed.
-    /// **See:** [`get_installed_terminals`]
+    //região onde é sondado um terminal
+    /// Verifica se um [`Terminal`] está instalado.
+    /// **Ver:** [`get_installed_terminals`]
     pub async fn installed(&self, shell: &Shell<Wry>) -> bool {
         match self {
             Terminal::CMD => get_os() == "windows",
@@ -205,7 +205,7 @@ impl Terminal {
                     .current_dir(working_dir.as_path())
             }
             Terminal::Terminal => {
-                // Create a bash script and run that. Not very secure but it makes this easier.
+                // Crie um script bash e executar. Não é muito seguro, mas torna isso mais fácil.
                 let download_script = format!("#!/bin/bash\ncd {}\n{}",working_dir.to_str().unwrap().replace(" ", "\\ "), command[0]);
 
                 fs::write("./script.sh", download_script).unwrap();
@@ -213,7 +213,7 @@ impl Terminal {
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    fs::set_permissions("./script.sh", fs::Permissions::from_mode(0o755)).unwrap(); // Won't run without executable permission
+                    fs::set_permissions("./script.sh", fs::Permissions::from_mode(0o755)).unwrap(); // Não será executado sem permissão executável
                 }
 
                 shell.command("/usr/bin/open")
@@ -227,16 +227,16 @@ impl Terminal {
 }
 
 /**
-Checks if terminals are installed by checking if they respond to commands.
+Verifica se os terminais estão instalados verificando se eles respondem aos comandos.
 
-## How it works
-Probes a list of popular terminals and checks if they return an error when calling their `--version` or similar command line flag.
+## Como funciona
+Investiga uma lista de terminais populares e verifica se eles retornam um erro ao chamar seu `--version` ou sinalizador de linha de comando similar.
 
 ## Options
-* `return_immediately`: [`bool`]: Return as soon as one terminal is found.
+* `return_immediately`: [`bool`]: Retorna assim que um terminal for encontrado.
 
 ## Returns
-A vector containing a list of terminals that should work.
+Um vetor contendo uma lista de terminais que devem funcionar.
 
 ## Commands
 | Terminal       | Command to check if installed |
@@ -266,7 +266,7 @@ pub async fn get_installed_terminals(return_immediately: bool, shell: &Shell<Wry
     let mut available_terminals: Vec<Terminal> = Vec::new();
 
     for terminal in Terminal::iter() {
-        // Probe terminal. If it doesn't raise an error, it is probably installed.
+        // Terminal de sondagem. Se não gerar erro, provavelmente está instalado.
         if terminal.installed(shell).await {
             if return_immediately {
                 return vec![terminal];
@@ -282,13 +282,13 @@ pub async fn get_installed_terminals(return_immediately: bool, shell: &Shell<Wry
     available_terminals
 }
 
-/// Creates the DepotDownloader command necessary to download the requested manifest.
+/// Cria o comando DepotDownloader necessário para baixar o manifest solicitado.
 fn create_depotdownloader_command(steam_download: &SteamDownload) -> Vec<String> {
     let output_dir = if get_os() == "windows" {
-        // In PowerShell, spaces can be escaped with a backtick.
+        // No PowerShell, os espaços podem ser escapados com uma crase.
         steam_download.output_path().replace(" ", "` ")
     } else {
-        // In bash, spaces can be escaped with a backslash.
+        // No bash, os espaços podem ser escapados com uma barra invertida.
         steam_download.output_path().replace(" ", "\\ ")
     };
 
