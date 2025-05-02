@@ -2,13 +2,14 @@
   "ExpandedNodes": [
     "",
     "\\.github",
-    "\\.github\\ISSUE_TEMPLATE",
     "\\.github\\workflows",
     "\\src",
     "\\src-tauri",
     "\\src-tauri\\capabilities",
-    "\\src-tauri\\src"
+    "\\src-tauri\\src",
+    "\\src\\assets",
+    "\\src\\css",
+    "\\src\\ts"
   ],
-  "SelectedNode": "\\src\\index.html",
   "PreviewInSolutionExplorer": false
 }

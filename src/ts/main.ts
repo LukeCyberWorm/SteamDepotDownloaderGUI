@@ -1,223 +1,214 @@
 import $ from "jquery";
 import {invoke} from "@tauri-apps/api/core";
-import {open as openDialog} from "@tauri-apps/plugin-dialog";
-import {open as openShell} from "@tauri-apps/plugin-shell";
-import {listen} from "@tauri-apps/api/event";
+import {open as abrirDialogo} from "@tauri-apps/plugin-dialog";
+import {open as abrirShell} from "@tauri-apps/plugin-shell";
+import {listen as ouvir} from "@tauri-apps/api/event";
 
-function setLoader(state: boolean) {
-	$("#busy").prop("hidden", !state);
+function definirCarregador(estado: boolean) {
+    $("#busy").prop("hidden", !estado);
 }
 
+function definirEstadoCarregamento(estado: boolean) {
+    $("#busy").prop("hidden", !estado);
 
-function setLoadingState(state: boolean) {
-	$("#busy").prop("hidden", !state);
+    // Iterar por todos os botões e campos de entrada e desativá-los
+    for (const elemento of document.querySelectorAll("button, input")) {
+        if (elemento.closest("#settings-content")) continue;
+        (elemento as any).disabled = estado;
+    }
 
-	// loop through all buttons and input fields and disable them
-	for (const element of document.querySelectorAll("button, input")) {
-		if (element.closest("#settings-content")) continue;
-		(element as any).disabled = state;
-	}
+    // Esses elementos precisam de propriedades adicionais para serem desativados corretamente
+    $("#pickpath").prop("ariaDisabled", estado);
+    $("#downloadbtn").prop("ariaDisabled", estado);
 
-	// These elements need additional properties to be properly disabled
-	$("#pickpath").prop("ariaDisabled", state);
-	$("#downloadbtn").prop("ariaDisabled", state);
-
-	// disable internet buttons
-	for (const element of document.querySelectorAll("#internet-btns div")) {
-		element.ariaDisabled = String(state);
-	}
+    // Desativar botões da internet
+    for (const elemento of document.querySelectorAll("#internet-btns div")) {
+        elemento.ariaDisabled = String(estado);
+    }
 }
 
+/// Retorna uma lista de IDs de campos de formulário inválidos
+const camposInvalidos = () => {
+    const formulario = document.forms[0];
 
-/// Returns list of IDs of invalid form fields
-const invalidFields = () => {
-	const form = document.forms[0];
+    const camposInvalidos: string[] = [];
+    for (const entrada of formulario) {
+        const elementoEntrada = entrada as HTMLInputElement;
+        const valido = !(elementoEntrada.value === "" && elementoEntrada?.parentElement?.classList.contains("required"));
+        if (!valido) {
+            camposInvalidos.push(elementoEntrada.id);
+        }
+    }
+    // console.debug(`[${camposInvalidos.join(", ")}] campos inválidos/vazios`);
 
-	const invalidFields: string[] = [];
-	for (const input of form) {
-		const inputElement = input as HTMLInputElement;
-		const valid = !(inputElement.value === "" && inputElement?.parentElement?.classList.contains("required"));
-		if (!valid) {
-			invalidFields.push(inputElement.id);
-		}
-	}
-	// console.debug(`[${invalidFields.join(", ")}] fields invalid/empty`);
-
-	return invalidFields;
+    return camposInvalidos;
 };
 
-
 $(async () => {
-	let terminalsCollected = false;
-	let downloadDirectory: string | null;
+    let terminaisColetados = false;
+    let diretorioDownload: string | null;
 
-	// Startup logic
-	setLoadingState(true);
+    // Lógica de inicialização
+    definirEstadoCarregamento(true);
 
-	await invoke("preload_vectum");
+    await invoke("preload_vectum");
 
-	setLoadingState(false);
+    definirEstadoCarregamento(false);
 
+    // Coletar o restante dos terminais em segundo plano
+    if (!terminaisColetados) {
+        definirCarregador(true);
+        // @ts-ignore
+        const terminais = await invoke("get_all_terminals") as string[];
+        for (const terminal in terminais) {
+            console.log(terminal);
+        }
 
-	// Collect the rest of the terminals in the background.
-	if (!terminalsCollected) {
-		setLoader(true);
-		// @ts-ignore
-		const terminals = await invoke("get_all_terminals") as string[];
-		for (const terminal in terminals) {
-			console.log(terminal);
-		}
+        // Permitir abrir configurações agora que está pronto para ser exibido
+        $("#settings-button").prop("ariaDisabled", false);
+        terminaisColetados = true;
+        definirCarregador(false);
+    }
 
-		// Allow opening settings now that it is ready to be shown.
-		$("#settings-button").prop("ariaDisabled", false);
-		terminalsCollected = true;
-		setLoader(false);
-	}
+    $("#pickpath").on("click", async () => {
+        // Abrir um diálogo
+        diretorioDownload = await abrirDialogo({
+            title: "Escolha onde salvar o download do jogo.",
+            multiple: false,
+            directory: true,
+            canCreateDirectories: true
+        });
 
-	$("#pickpath").on("click", async () => {
-		// Open a dialog
-		downloadDirectory = await openDialog({
-			title: "Choose where to save the game download.",
-			multiple: false,
-			directory: true,
-			canCreateDirectories: true
-		});
+        if (diretorioDownload == null) {
+            // usuário cancelou
+            $("#checkpath").prop("ariaDisabled", true);
+            $("#checkpath").prop("disabled", true);
+            return;
+        }
 
-		if (downloadDirectory == null) {
-			// user cancelled
-			$("#checkpath").prop("ariaDisabled", true);
-			$("#checkpath").prop("disabled", true);
-			return;
-		}
+        $("#checkpath").prop("ariaDisabled", false);
+        $("#checkpath").prop("disabled", false);
+        $("#downloadbtn").prop("ariaDisabled", false);
+        $("#nopathwarning").prop("hidden", true);
 
-		$("#checkpath").prop("ariaDisabled", false);
-		$("#checkpath").prop("disabled", false);
-		$("#downloadbtn").prop("ariaDisabled", false);
-		$("#nopathwarning").prop("hidden", true);
+        console.log(diretorioDownload);
+    });
 
+    $("#checkpath").on("click", async () => {
+        console.log(`Verificando caminho: ${diretorioDownload}`);
 
-		console.log(downloadDirectory);
-	});
+        if (diretorioDownload != null) {
+            await abrirShell(diretorioDownload);
+        } else {
+            $("#checkpath").prop("ariaDisabled", true);
+        }
+    });
 
-	$("#checkpath").on("click", async () => {
-		console.log(`Checking path: ${downloadDirectory}`);
+    $("#downloadbtn").on("click", async () => {
+        console.log("Botão de download clicado");
 
-		if (downloadDirectory != null) {
-			await openShell(downloadDirectory);
-		} else {
-			$("#checkpath").prop("ariaDisabled", true);
-		}
-	});
+        if (camposInvalidos().length > 0) {
+            // Iterar pelos campos inválidos. Se houver algum, marcar como "errored" e bloquear o botão de download
+            for (const id of camposInvalidos()) {
+                document.getElementById(id)?.parentElement?.classList.toggle("errored", true);
+            }
+            $("#emptywarning").prop("hidden", false);
+            $("#downloadbtn").prop("ariaDisabled", true);
+            return;
+        }
 
-	$("#downloadbtn").on("click", async () => {
-		console.log("download button clicked");
+        if (diretorioDownload == null) {
+            $("#nopathwarning").prop("hidden", false);
+            $("#downloadbtn").prop("ariaDisabled", true);
+            return;
+        }
 
-		if (invalidFields().length > 0) {
-			// Loop through invalid fields. If there are any, make those "errored" and block the download button.
-			for (const id of invalidFields()) {
-				document.getElementById(id)?.parentElement?.classList.toggle("errored", true);
-			}
-			$("#emptywarning").prop("hidden", false);
-			$("#downloadbtn").prop("ariaDisabled", true);
-			return;
-		}
+        definirEstadoCarregamento(true);
+        $("#downloadingnotice").prop("hidden", false);
+        $("#busy").prop("hidden", true); // Não mostrar o carregador desta vez
 
-		if (downloadDirectory == null) {
-			$("#nopathwarning").prop("hidden", false);
-			$("#downloadbtn").prop("ariaDisabled", true);
-			return;
-		}
+        const escolhaTerminal = (document.getElementById("terminal-dropdown") as HTMLSelectElement).selectedIndex;
+        const escolhaNomeDiretorio = $("#folder-name-custom-input").val();
 
-		setLoadingState(true);
-		$("#downloadingnotice").prop("hidden", false);
-		$("#busy").prop("hidden", true); // Don't show the loader this time.
+        // Caminho de saída com os diretórios escolhidos é: {diretorioDownload}/{escolhaNomeDiretorio}
+        const opcoesVectum = {
+            terminal: escolhaTerminal == 13 ? null : escolhaTerminal,
+            diretorio_saida: diretorioDownload || null, // se não especificado, deixe o backend escolher um caminho
+            nome_diretorio: escolhaNomeDiretorio || null,
+        };
 
-		const terminalChoice = (document.getElementById("terminal-dropdown") as HTMLSelectElement).selectedIndex;
-		const directoryNameChoice = $("#folder-name-custom-input").val();
+        const downloadSteam = {
+            // String || null traduz para Some(String) || None
+            usuario: String($("#username").val()).trim() || null,
+            senha: String($("#password").val()).trim() || null,
+            app_id: $("#appid").val(),
+            depot_id: $("#depotid").val(),
+            manifest_id: $("#manifestid").val(),
+            opcoes: opcoesVectum
+        };
 
-		// Output path w/ directories chosen is: {downloadDirectory}/{directoryNameChoice}
-		const vectumOptions = {
-			terminal: terminalChoice == 13 ? null : terminalChoice,
-			output_directory: downloadDirectory || null, // if not specified let backend choose a path.
-			directory_name: directoryNameChoice || null,
-		};
+        // console.debug(downloadSteam);
+        await invoke("download_depotdownloader");
 
-		const steamDownload = {
-			// String || null translate to Some(String) || None
-			username: String($("#username").val()).trim() || null,
-			password: String($("#password").val()).trim() || null,
-			app_id: $("#appid").val(),
-			depot_id: $("#depotid").val(),
-			manifest_id: $("#manifestid").val(),
-			options: vectumOptions
-		};
+        $("#downloadingnotice").prop("hidden", true);
+        definirEstadoCarregamento(false);
 
-		// console.debug(steamDownload);
-		await invoke("download_depotdownloader");
+        console.debug("Processo de download do DepotDownloader concluído. Iniciando download do jogo...");
 
-		$("#downloadingnotice").prop("hidden", true);
-		setLoadingState(false);
+        await invoke("start_download", {steamDownload: downloadSteam});
+        console.log("Dados do frontend enviados para o backend. Pronto para o próximo download.");
+    });
 
-		console.debug("DepotDownloader download process completed. Starting game download...");
+    $("#settings-button").on("click", async () => {
+        if (terminaisColetados) $("#settings-surrounding").css("display", "block");
+    });
 
-		await invoke("start_download", {steamDownload: steamDownload});
-		console.log("Send frontend data over to backend. Ready for next download.");
-	});
+    $("#settings-surrounding").on("click", (evento) => {
+        if (evento.target === document.getElementById("settings-surrounding")) {
+            $("#settings-surrounding").css("display", "none");
+        }
+    });
 
-	$("#settings-button").on("click", async () => {
-		if (terminalsCollected) $("#settings-surrounding").css("display", "block");
-	});
+    $("#opium-btn").on("click", () => {
+        abrirShell("https://aphex.cc");
+    });
 
-	$("#settings-surrounding").on("click", (event) => {
-		if (event.target === document.getElementById("settings-surrounding")) {
-			$("#settings-surrounding").css("display", "none");
+    document.forms[0].addEventListener("input", (evento) => {
+        // Remover classe "errored". Este é um jeito ruim de fazer, mas funciona por enquanto
+        const alvo = evento.target as HTMLElement;
+        alvo?.parentElement?.classList.toggle("errored", false);
 
-		}
-	});
-
-	$("#opium-btn").on("click", () => {
-		openShell("https://aphex.cc");
-	});
-
-
-	document.forms[0].addEventListener("input", (event) => {
-		// Remove errored class. This is a bad way to do it, but it works for now.
-		const target = event.target as HTMLElement;
-		target?.parentElement?.classList.toggle("errored", false);
-
-		// If there are no more invalid fields, hide the warning and enable the download button again
-		if (invalidFields().length === 0) {
-			$("#emptywarning").prop("hidden", true);
-			$("#downloadbtn").prop("ariaDisabled", false);
-		}
-	});
+        // Se não houver mais campos inválidos, esconder o aviso e habilitar o botão de download novamente
+        if (camposInvalidos().length === 0) {
+            $("#emptywarning").prop("hidden", true);
+            $("#downloadbtn").prop("ariaDisabled", false);
+        }
+    });
 });
-
 
 let a = 0;
-// Each terminal that is installed gets received from rust with this event.
-listen<[number, number]>("working-terminal", (event) => {
-	a++;
-	console.log(
-		`Terminal #${event.payload[0]} is installed. a = ${a}`
-	);
-	const terminalSelection = (document.getElementById("terminal-dropdown") as HTMLSelectElement);
+// Cada terminal instalado é recebido do Rust com este evento
+ouvir<[number, number]>("working-terminal", (evento) => {
+    a++;
+    console.log(
+        `Terminal #${evento.payload[0]} está instalado. a = ${a}`
+    );
+    const selecaoTerminal = (document.getElementById("terminal-dropdown") as HTMLSelectElement);
 
-	// Enable the <option> of the terminal because we know it is available. Ignore null check because we know it is valid.
-	// @ts-ignore
-	terminalSelection.options.item(event.payload[0]).disabled = false;
-	// @ts-ignore 16
+    // Habilitar a <option> do terminal porque sabemos que está disponível. Ignorar verificação nula porque sabemos que é válido
+    // @ts-ignore
+    selecaoTerminal.options.item(evento.payload[0]).disabled = false;
+    // @ts-ignore 16
 
-	terminalSelection.options.item(event.payload[0]).text = terminalSelection.options.item(event.payload[0]).text.slice(0,-16);
+    selecaoTerminal.options.item(evento.payload[0]).text = selecaoTerminal.options.item(evento.payload[0]).text.slice(0, -16);
 
-	$("#terminals-found").text(`${a}/${event.payload[1]}`);
+    $("#terminals-found").text(`${a}/${evento.payload[1]}`);
 });
 
+ouvir<string>("default-terminal", (evento) => {
+    console.log(
+        `Terminal padrão é ${evento.payload}.`
+    );
 
-listen<string>("default-terminal", (event) => {
-	console.log(
-		`Default terminal is ${event.payload}.`
-	);
-
-	$("#default-terminal").text(event.payload);
+    $("#default-terminal").text(evento.payload);
 });
